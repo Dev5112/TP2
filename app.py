@@ -45,7 +45,7 @@ from langchain.agents import create_tool_calling_agent, AgentExecutor
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(_name_)
 
 app = FastAPI(title="TDS Data Analyst Agent")
 
@@ -75,7 +75,7 @@ if not GEMINI_KEYS:
 
 # -------------------- LLM wrapper --------------------
 class LLMWithFallback:
-    def __init__(self, keys=None, models=None, temperature=0):
+    def _init_(self, keys=None, models=None, temperature=0):
         self.keys = keys or GEMINI_KEYS
         self.models = models or MODEL_HIERARCHY
         self.temperature = temperature
@@ -136,7 +136,7 @@ def parse_keys_and_types(raw_questions: str):
         type_map: dict key -> casting function
     """
     import re
-    pattern = r"-\s*`([^`]+)`\s*:\s*(\w+)"
+    pattern = r"-\s*([^]+)`\s*:\s*(\w+)"
     matches = re.findall(pattern, raw_questions)
     type_map_def = {
         "number": float,
@@ -248,8 +248,8 @@ def clean_llm_output(output: str) -> Dict:
         if not output:
             return {"error": "Empty LLM output"}
         # remove triple-fence markers if present
-        s = re.sub(r"^```(?:json)?\s*", "", output.strip())
-        s = re.sub(r"\s*```$", "", s)
+        s = re.sub(r"^(?:json)?\s*", "", output.strip())
+        s = re.sub(r"\s*$", "", s)
         # find outermost JSON object by scanning for balanced braces
         first = s.find("{")
         last = s.rfind("}")
@@ -335,7 +335,7 @@ def write_and_run_temp_python(code: str, injected_pickle: str = None, timeout: i
       - provides a safe environment (imports)
       - loads df/from pickle if provided into df and data variables
       - defines a robust plot_to_base64() helper that ensures < 100kB (attempts resizing/conversion)
-      - executes the user code (which should populate `results` dict)
+      - executes the user code (which should populate results dict)
       - prints json.dumps({"status":"success","result":results})
     Returns dict with parsed JSON or error details.
     """
@@ -465,20 +465,20 @@ prompt = ChatPromptTemplate.from_messages([
     ("system", """You are a full-stack autonomous data analyst agent.
 
 You will receive:
-- A set of **rules** for this request (these rules may differ depending on whether a dataset is uploaded or not)
-- One or more **questions**
-- An optional **dataset preview**
+- A set of *rules* for this request (these rules may differ depending on whether a dataset is uploaded or not)
+- One or more *questions*
+- An optional *dataset preview*
 
 You must:
 1. Follow the provided rules exactly.
 2. Return only a valid JSON object — no extra commentary or formatting.
 3. The JSON must contain:
    - "questions": [ list of original question strings exactly as provided ]
-   - "code": "..." (Python code that creates a dict called `results` with each question string as a key and its computed answer as the value)
+   - "code": "..." (Python code that creates a dict called results with each question string as a key and its computed answer as the value)
 4. Your Python code will run in a sandbox with:
    - pandas, numpy, matplotlib available
-   - A helper function `plot_to_base64(max_bytes=100000)` for generating base64-encoded images under 100KB.
-5. When returning plots, always use `plot_to_base64()` to keep image sizes small.
+   - A helper function plot_to_base64(max_bytes=100000) for generating base64-encoded images under 100KB.
+5. When returning plots, always use plot_to_base64() to keep image sizes small.
 6. Make sure all variables are defined before use, and the code can run without any undefined references.
 """),
     ("human", "{input}"),
@@ -529,7 +529,7 @@ def run_agent_safely(llm_input: str) -> Dict:
         questions: List[str] = parsed["questions"]
 
         # Detect scrape calls; find all URLs used in scrape_url_to_dataframe("URL")
-        urls = re.findall(r"scrape_url_to_dataframe\(\s*['\"](.*?)['\"]\s*\)", code)
+        urls = re.findall(r"scrape_url_to_dataframe\(\s*['\"](.?)['\"]\s\)", code)
         pickle_path = None
         if urls:
             # For now support only the first URL (agent may code multiple scrapes; you can extend this)
@@ -636,12 +636,12 @@ async def analyze_data(request: Request):
         if dataset_uploaded:
             llm_rules = (
                 "Rules:\n"
-                "1) You have access to a pandas DataFrame called `df` and its dictionary form `data`.\n"
+                "1) You have access to a pandas DataFrame called df and its dictionary form data.\n"
                 "2) DO NOT call scrape_url_to_dataframe() or fetch any external data.\n"
                 "3) Use only the uploaded dataset for answering questions.\n"
                 "4) Produce a final JSON object with keys:\n"
                 '   - "questions": [ ... original question strings ... ]\n'
-                '   - "code": "..."  (Python code that fills `results` with exact question strings as keys)\n'
+                '   - "code": "..."  (Python code that fills results with exact question strings as keys)\n'
                 "5) For plots: use plot_to_base64() helper to return base64 image data under 100kB.\n"
             )
         else:
@@ -650,7 +650,7 @@ async def analyze_data(request: Request):
                 "1) If you need web data, CALL scrape_url_to_dataframe(url).\n"
                 "2) Produce a final JSON object with keys:\n"
                 '   - "questions": [ ... original question strings ... ]\n'
-                '   - "code": "..."  (Python code that fills `results` with exact question strings as keys)\n'
+                '   - "code": "..."  (Python code that fills results with exact question strings as keys)\n'
                 "3) For plots: use plot_to_base64() helper to return base64 image data under 100kB.\n"
             )
 
@@ -727,7 +727,7 @@ def run_agent_safely_unified(llm_input: str, pickle_path: str = None) -> Dict:
         questions = parsed["questions"]
 
         if pickle_path is None:
-            urls = re.findall(r"scrape_url_to_dataframe\(\s*['\"](.*?)['\"]\s*\)", code)
+            urls = re.findall(r"scrape_url_to_dataframe\(\s*['\"](.?)['\"]\s\)", code)
             if urls:
                 url = urls[0]
                 tool_resp = scrape_url_to_dataframe(url)
@@ -977,9 +977,9 @@ def _test_gemini_key_model(key, model, ping_text="ping"):
             text = extract_text(resp)
             return {"ok": True, "model": model, "summary": text[:200] if text else None}
         except Exception as e_invoke:
-            # Try __call__()
+            # Try _call_()
             try:
-                resp = obj.__call__(ping_text)
+                resp = obj._call_(ping_text)
                 text = extract_text(resp)
                 return {"ok": True, "model": model, "summary": text[:200] if text else None}
             except Exception as e_call:
@@ -1113,7 +1113,6 @@ async def diagnose(full: bool = Query(False, description="If true, run extended 
     return report
 
 
-if __name__ == "__main__":
+if _name_ == "_main_":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
-
